@@ -13,9 +13,8 @@ import os
 print("device name: " + str(torch.cuda.get_device_name(0)))
 print("device current device: " + str(torch.cuda.current_device()))
 print("device count: " + str(torch.cuda.device_count()))
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 preprocess = transforms.Compose([
-            transforms.Scale(256),
+            transforms.Resize([256, 256]),
             transforms.CenterCrop(224),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -24,11 +23,12 @@ preprocess = transforms.Compose([
 # step 1: call the redefined network in torch
 resnet18 = models.resnet18(pretrained=True)
 resnet18.fc = nn.Linear(512, 16)
-# step 2: prepare the training data using dataloader
+print(resnet18)
+# step 2: prepare the training data using dataLoader
 new_dataset = RGBDDataset('office', './', 'seq-01', 1000)
 dataLoader = DataLoader(new_dataset, batch_size=1, shuffle=True, num_workers=0, drop_last=True)
 # step 3: select optimizer
-optimizer = torch.optim.SGD(resnet18.parameters(), lr=0.00005)
+optimizer = torch.optim.Adam(resnet18.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
 loss_func = torch.nn.L1Loss()
 # step 4: start training
 running_loss = torch.zeros(1)
@@ -51,10 +51,10 @@ for epoch in range(2):
             frame_pose_input = frame_pose_input.to('cuda:0')
             resnet18.to('cuda')
         prediction = resnet18(input_batch)
-        # print(prediction.double())
+        # print(prediction.double().view(16))
         # print(frame_pose_input)
 
-        loss = loss_func(prediction.double(), frame_pose_input)
+        loss = loss_func(prediction.double().view(16), frame_pose_input)
         # print(loss)
         loss.backward()
         optimizer.step()
