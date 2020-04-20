@@ -22,6 +22,7 @@ preprocess = transforms.Compose([
         ])
 # step 1: call the redefined network in torch
 resnet18 = models.resnet18(pretrained=True)
+resnet18.cuda()
 resnet18.fc = nn.Linear(512, 16)
 print(resnet18)
 # step 2: prepare the training data using dataLoader
@@ -34,7 +35,7 @@ loss_func = torch.nn.L1Loss()
 running_loss = torch.zeros(1)
 if torch.cuda.is_available():
     running_loss.to('cuda:0')
-for epoch in range(2):
+for epoch in range(10):
     for i, (index, img_color, img_depth, frame_pose) in enumerate(dataLoader, 0):
         # print(index)
         img = img_color.numpy().reshape(640, 480, 3)
@@ -66,6 +67,8 @@ for epoch in range(2):
         running_loss += loss
         if i % 200 == 199:
             print('[%d, %5d] loss: %.3f' % (epoch+1, i+1, running_loss/200))
+
+    running_loss = 0
 
 if torch.cuda.is_available():
     print("cuda is available!\n")
