@@ -29,6 +29,8 @@ test_dataset = RGBDDataset('office', './', 'seq-02', 1000)
 dataLoader = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=0, drop_last=True)
 loss_func = torch.nn.L1Loss()
 running_loss = torch.zeros(1)
+running_rot_loss = torch.zeros(1)
+running_trans_loss = torch.zeros(1)
 for i, (index, img_color, img_depth, frame_pose) in enumerate(dataLoader, 0):
     # print(index)
     img = img_color.numpy().reshape(640, 480, 3)
@@ -49,11 +51,29 @@ for i, (index, img_color, img_depth, frame_pose) in enumerate(dataLoader, 0):
     # print(frame_pose_input)
 
     loss = loss_func(prediction.double().view(6), pose_data).cuda()
-
+    rot_loss = loss_func(prediction.double().view(6)[0:3], pose_data[0:3])
+    trans_loss = loss_func(prediction.double().view(6)[3:6], pose_data[3:6])
+    # print(prediction.double().view(6))
+    # print(prediction.double().view(6)[0:3])
+    # print(prediction.double().view(6)[3:6])
+    # print(pose_data)
+    # print(pose_data[0:3])
+    # print(pose_data[3:6])
+    # print(rot_loss)
+    # print(trans_loss)
     running_loss += loss
-    if i % 50 == 49:
-        print('[%5d] loss: %.3f' % (i + 1, running_loss / 50))
+    running_rot_loss += rot_loss
+    running_trans_loss += trans_loss
+    if i % 1000 == 999:
+        print('[%4d] loss: %.3f rot_loss: %.3f trans_loss: %.3f\n[%4dth] pose_data:' %
+              (i + 1, running_loss / 1000, running_rot_loss / 1000, running_trans_loss / 1000, i + 1))
+        print(pose_data)
+        print('prediction:')
+        print(prediction)
+
         running_loss = 0
+        running_rot_loss = 0
+        running_trans_loss = 0
 # [   50] loss: 0.464
 # [  100] loss: 0.444
 # [  150] loss: 0.426
