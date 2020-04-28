@@ -10,6 +10,7 @@ from torch.utils.data.dataloader import DataLoader
 from PIL import Image
 import numpy
 import os
+import matplotlib.pyplot as plt
 
 print("device name: " + str(torch.cuda.get_device_name(0)))
 print("device current device: " + str(torch.cuda.current_device()))
@@ -29,14 +30,19 @@ if torch.cuda.is_available():
 # print(resnet18)
 # step 2: prepare the training data using dataLoader
 new_dataset = RGBDDataset('office', './', 'seq-01', 1000)
-dataLoader = DataLoader(new_dataset, batch_size=1, shuffle=True, num_workers=0, drop_last=True)
+dataLoader = DataLoader(new_dataset, batch_size=1, shuffle=True, num_workers=0, drop_last=True, pin_memory=True)
 # step 3: select optimizer
 optimizer = torch.optim.SGD(resnet18.parameters(), lr=0.01, momentum=0.9)
 loss_func = torch.nn.L1Loss()
 # step 4: start training
 running_loss = torch.zeros(1)
+running_rot_loss = torch.zeros(1)
+running_trans_loss = torch.zeros(1)
 if torch.cuda.is_available():
     running_loss = running_loss.cuda()
+loss_list = []
+rot_loss_list = []
+trans_loss_list = []
 for epoch in range(10):
     for i, (index, img_color, img_depth, frame_pose) in enumerate(dataLoader, 0):
         # print(index)
@@ -59,6 +65,8 @@ for epoch in range(10):
         # print(frame_pose_input)
 
         loss = loss_func(prediction.double().view(6), pose_data).cuda()
+        rot_loss = loss_func(prediction.double().view(6)[0:3], pose_data[0:3]).cuda()
+        trans_loss = loss_func(prediction.double().view(6)[3:6], pose_data[3:6]).cuda()
         # print(loss)
         loss.backward()
         optimizer.step()
@@ -68,9 +76,39 @@ for epoch in range(10):
         #     loss = loss.to("cpu")
         # print(loss)
         running_loss += loss
+        running_rot_loss += rot_loss
+        running_trans_loss += trans_loss
         if i % 200 == 199:
             print('[%d, %5d] loss: %.3f' % (epoch+1, i+1, running_loss/200))
+            loss_list.append(running_loss/200)
+            rot_loss_list.append(running_rot_loss/200)
+            trans_loss_list.append(running_trans_loss/200)
             running_loss = 0
+            running_rot_loss = 0
+            running_trans_loss = 0
+x = []
+for i in range(50):
+    x.append(200 * (i + 1))
+plt.figure(figsize=(8, 4))
+plt.plot(x, loss_list, label="$loss$", color="red", linewidth=2)
+plt.xlabel("training data pairs")
+plt.ylabel("loss")
+plt.show()
+plt.savefig("loss.jpg")
+
+plt.figure(figsize=(8, 4))
+plt.plot(x, rot_loss_list, label="$rot_loss$", color="red", linewidth=2)
+plt.xlabel("training data pairs")
+plt.ylabel("rot_loss")
+plt.show()
+plt.savefig("rot_loss.jpg")
+
+plt.figure(figsize=(8, 4))
+plt.plot(x, trans_loss_list, label="$trans_loss$", color="red", linewidth=2)
+plt.xlabel("training data pairs")
+plt.ylabel("trans_loss")
+plt.show()
+plt.savefig("trans_loss.jpg")
 # torch.save(resnet18, 'model.pkl')
 if torch.cuda.is_available():
     print("cuda is available!\n")
